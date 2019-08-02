@@ -1,4 +1,22 @@
 
+```{r}
+#librerías utilizadas
+library(caTools)
+
+#Librería de gráficos
+library(ggplot2)
+
+library(readr)
+
+library(GGally)
+
+library(dplyr)
+
+#Evitar mostrar warning messages
+#options(warn=-1)
+```
+
+
 # Tarea 1
 
 Siga el siguiente documento y escriba el código en las secciones señaladas.
@@ -29,7 +47,17 @@ Ejemplo:
 `casas <- read.csv('kc_house_data.csv', header = T, na.strings = '?')`
 
 ```{r}
-# Escriba su código aqui
+
+# El proceso de lectura es mas rapido
+ casas <- read_csv('kc_house_data.csv', col_types = cols(
+   .default = col_double(),
+   id = col_character(),
+   date = col_datetime(format =)
+ ))
+
+ #casas <- read.csv('kc_house_data.csv', header = T, na.strings = '?')
+
+
 ```
 
 Utilice la función summary sobre el dataset
@@ -39,17 +67,7 @@ Ejemplo:
 `summary(casas)`
 
 ```{r}
-# Escriba su código aqui
-```
-
-```{r}
-#librerías utilizadas
-library(caTools)
-
-#Librería de gráficos
-library(ggplot2)
-#Evitar mostrar warning messages
-options(warn=-1)
+ summary(casas)
 ```
 
 Cargue en una variable las columnas 'price' y 'sqft_living'
@@ -59,13 +77,13 @@ Ejemplo
 `casas <-casas[,c(3,6)]`
 
 ```{r}
-# Escriba su código aqui
+casas <-casas[,c(3,6)]
 ```
 
 Utilice la función summary sobre la nueva variable
 
 ```{r}
-# Escriba su código aqui
+ summary(casas)
 ```
 
 Aplique la función de correlación para obtener las correlaciones entre las columnas seleccionadas (price, sqft_living)
@@ -75,7 +93,8 @@ Ejemplo:
 `cor(casas)`
 
 ```{r}
-# Escriba su código aqui
+# Por defecto se utiliza el método pearson si no se especifica parámetros
+cor(casas)
 ```
 
 ### Interpretando los resultados de la correlación
@@ -102,7 +121,11 @@ Ejemplo
 `cor(casas, method='spearman')`
 
 ```{r}
-# Escriba su código aqui
+
+# Para el caso utilizaremos pearson dado que queremos realizar una evaluación lineal entre price & sqft_living
+# link de referencia => https://support.minitab.com/en-us/minitab-express/1/help-and-how-to/modeling-statistics/regression/supporting-topics/basics/a-comparison-of-the-pearson-and-spearman-correlation-methods/
+cor(casas, method='pearson')
+
 ```
 
 ### Visualización
@@ -116,7 +139,9 @@ Ejemplo
 `plot(y = casas$price,x = casas$sqft_living, main = 'Relación entre Precio y Metros cuadrados', ylab = 'price', xlab = 'sqft_living')`
 
 ```{r}
-# Escriba su código aqui
+
+plot(y = casas$price,x = casas$sqft_living, main = 'Relación entre Precio y Metros cuadrados', ylab = 'price', xlab = 'sqft_living')
+
 ```
 
 ## Conclusiones
