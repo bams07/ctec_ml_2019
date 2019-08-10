@@ -7,8 +7,6 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# 
-
 # Breve introducción a ggpairs
 
 `ggpairs()` es una función de la librería GGally que permite crear matrices de gráficos y es realmente útil en la etapa de análisis y exploración de los datos. Pueden encontrar más información sobre `ggpairs()` y GGally en el siguiente enlace https://ggobi.github.io/ggally/#ggally
@@ -17,6 +15,9 @@ El siguiente ejemplo muestra el gráfico de las correlaciones y densidades de al
 
 ```{r}
 library(GGally)
+
+library(dplyr)
+
 library(ggplot2)
 
 casas <- read.csv('kc_house_data.csv', header = T, na.strings = '?')
@@ -36,10 +37,19 @@ El siguiente código muestra el número de elementos faltantes en todo un datase
 
 `sum(is.na(dataset))`
 
+```{r}
+sum(is.na(casas))
+```
+
+
 
 También podemos buscar valores faltantes en columnas especificas
 
 `sum(is.na(dataset$columna))`
+
+```{r}
+sum(is.na(casas$price))
+```
 
 
 R posee funciones para modificar dataframes las cuales podemos aprovechar para el tratamiento de valores faltantes y transformaciones
@@ -48,11 +58,26 @@ Podemos asignar valores nuevos a toda una columna.
 
 `dataframe$columna <- 0`
 
+```{r}
+
+# Commentado solo por ejemplo
+#casas$price <- 0
+
+```
+
+
 `dataframe$columna <- funcion(dataframe$columna)`
 
 O podemos hacerlo solo en los campos faltantes.
 
 `dataframe$columna[is.na(dataframe$columna)] <- 0`
+
+```{r}
+
+casas$price[is.na(casas$price)] <- 0
+
+```
+
 
 `dataframe$columna[is.na(dataframe$columna)] <- funcion(dataframe$columna)`
 
@@ -60,14 +85,20 @@ O podemos hacerlo solo en los campos faltantes.
 
 ### 1. Correción de valores inconsistentes
 ```{r}
+
 casas$bathrooms[1:10]
+
 ```
 Como podemos observar la columna bathrooms posee valores inconsistentes ya que no tiene sentido que una casa tenga 4.5 baños. 
 
 Modifique la columna bathrooms para que solo posea valores enteros
 
 ```{r}
-# Escriba su código aqui
+
+# Redondea al valor más proximó
+# Ejemplo: 3.4 => 3 / 3.7 => 4
+casas$bathrooms <- round(casas$bathrooms, digits = 0)
+
 ```
 
 ### 2. Llevar los datos a distribución normal.
@@ -77,10 +108,12 @@ Modifique la columna price del dataset de precios de casas para que siga una dis
 ```{r}
 # Precios antes de la modificación
 hist(casas$price)
+
 # Escriba su codigo aqui
-# ...
+log_casas_price <- log10(casas$price)
+
 # Precios normalmente distribuidos
-hist(casas$price)
+hist(log_casas_price)
 ```
 
 Note que ahora los precios ya no se agrupan a la izquierda.
@@ -92,7 +125,11 @@ Reemplace los valores faltantes de la columna sqft_living con la mediana de los 
 Nota: este dataset no posee valores faltantes pero para efectos del ejercicio esto no nos afecta ya que el código sería igual.
 
 ```{r}
-# Escriba su código aqui
+
+ # Remplaza los valores faltantes de la columna sqft_living por la mediana de los 
+ # valores existentes en la misma columna
+ casas$sqft_living[is.na(casas$sqft_living)] <- median(casas$sqft_living)
+
 ```
 
 
@@ -113,8 +150,28 @@ feature_scaling <- function(x) {
 2. Compare el resultado con la función `scale()`
 
 ```{r}
-# Escriba su código aqui
+
+feature_scaling_sqft_lot <- feature_scaling(casas$sqft_lot)
+
+scale_sqft_lot <- scale(casas$sqft_lot)
+
+# Tabla de resultados utilizando la función feature_scaling
+feature_scaling_sqft_lot
+
+# Plot utilizando la función feature_scaling
+plot(casas$sqft_lot ~ feature_scaling_sqft_lot)
+
+# Tabla de resultados utilizando la función scale sin parametros
+scale_sqft_lot
+
+# Plot utilizando la función scale
+plot(casas$sqft_lot ~ scale_sqft_lot)
+
 ```
+Al ver los resultados podemos notar que al utilizar la función **feature_scaling** obtenemos valores en el rango 0 - 1 pero con la función **scale** obtenemos valores con rangos más variables entre 0 y 25. Esto se debe a que por defecto **scale** calcula la media y desviación estandar del vector, en este caso de la columna **sqft_lot**, luego hace un **scale** por cada elemento del vector restantado la media (mean) y dividiendo por la desviación estandar (sd).
+
+A nivel del plot de ambos calculos vemos una tendencia similar en la representación, lo que me lleva a concluir que lo datos aunque difieran en su valor son proporcionales en su escala indiferentemente si se utiliza la función **feature_scaling** ó la función **scale** sin parámetros.
+
 
 ### 5. Normalización con la función z-score
 
@@ -128,7 +185,19 @@ Pista: utilice las funciones `mean`, `sd`
 # Datos antes de la transformación
 hist(casas$bathrooms)
 # Escriba su código aqui
-# ...
+
+# Calculo de la media
+mean_bathrooms <- mean(casas$bathrooms)
+
+# Calculo de la desviación estándar
+sd_bathrooms <- sd(casas$bathrooms)
+
+# Se puede utilizar la función scale que automatiza el proceso
+casas$bathrooms <- (casas$bathrooms - mean_bathrooms) / sd_bathrooms
+
+# Utilizando scale
+#casas$bathrooms <- scale(casas$bathrooms)
+
 # Después de la transformación
 hist(casas$bathrooms)
 ```
