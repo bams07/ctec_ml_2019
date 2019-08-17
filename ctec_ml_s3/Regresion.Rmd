@@ -73,7 +73,7 @@ sum(is.na(autos_data))
 
 # Limpieza de datos
 # Se excluyen (model year, origin, model name) por que son variables categóricas
-autos_data = autos_data[,c('mpg', 'cyl', 'disp', 'hp', 'weight', 'acc')]
+#autos_data = autos_data[,c('mpg', 'cyl', 'disp', 'hp', 'weight', 'acc')]
 
 
 ```
@@ -83,13 +83,13 @@ autos_data = autos_data[,c('mpg', 'cyl', 'disp', 'hp', 'weight', 'acc')]
 ```{r}
 
 # Gráfico de correlaciones entre atributos
-ggpairs(autos_data)
+ggpairs(autos_data[,c('mpg', 'cyl', 'disp', 'hp', 'weight', 'acc')])
 
 # Gráfico de correlaciones entre atributos
-pairs(autos_data)
+pairs(autos_data[,c('mpg', 'cyl', 'disp', 'hp', 'weight', 'acc')])
 
 # Correlaciones
-cor(autos_data)
+cor(autos_data[,c('mpg', 'cyl', 'disp', 'hp', 'weight', 'acc')])
 
 
 ```
@@ -123,15 +123,17 @@ Nota: Al crear el modelo utilice el conjunto de datos de entrenamiento definido 
 
 ```{r}
 
-# Modelo de regresión lineal, 
+# Modelo de regresión lineal
 # variable dependiente mpg 
 # variables predictoras utilizadas acc & hp
 
 # Utilizando lm
 
+autos_formula = formula(mpg ~ acc + hp)
+
 # Modelo de regresión lineal simple
 # https://www.rdocumentation.org/packages/stats/versions/3.6.1/topics/lm
-autos_regresion_model = lm(mpg ~ acc + hp, autos_train_data)
+autos_regresion_model = lm(autos_formula, autos_train_data)
 
 # Resultado del analisis del modelo de regresión lineal - coeficientes
 summary(autos_regresion_model)
@@ -169,6 +171,35 @@ summary(autos_mse)
 6. Opcional
 
 6.a Pruebe varios modelos que utilicen diferentes variables y comparar los resultados obtenidos
+
+
+```{r}
+
+# Modelo de regresión lineal
+# variable dependiente mpg 
+# variables predictoras utilizadas cly & weight
+
+autos_opcional_formula = formula(mpg ~ cyl + weight)
+
+# Modelo de regresión lineal simple
+# https://www.rdocumentation.org/packages/stats/versions/3.6.1/topics/lm
+autos_opcional_regresion_model = lm(autos_opcional_formula, autos_train_data)
+
+# Resultado del analisis del modelo de regresión lineal - coeficientes
+summary(autos_opcional_regresion_model)
+
+# Predicción de los datos
+autos_opcional_predict = predict(object = autos_opcional_regresion_model, newdata = autos_test_data)
+
+# Medición del error cuadrático (desviación)
+autos_opcional_mse = mse(actual = autos_test_data$mpg, predicted = autos_opcional_predict)
+
+summary(autos_opcional_mse)
+
+# El error cuadrático es menor comparado al escenario anterior
+
+```
+
 
 6.b Investigar como implementar en R las técnicas de preprocesado y normalización vistas en clase y aplicarlas a los datos antes de pasarlos al modelo.
 
