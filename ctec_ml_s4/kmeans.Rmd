@@ -14,85 +14,295 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Librerias
 ```{r}
+
+library('GGally')
+
 library('ggplot2')
+
+library('visdat')
+
+library('dplyr')
+
+library('data.table')
+
+library('reshape')
+
+library('cluster')
+
+library('factoextra')
+
 ```
 
-1. Desarolle el Análisis del Problema
-```{r}
-# Construya el análisis del problema
-```
+## 1. Desarolle el Análisis del Problema
+
+### Análisis del Problema
+
+Realizar un análisis exploratorio de los datos para posterior a esto evaluar la agrupación de los datos mediante un modelo no supervisando utilizando Kmeans.
+
+Detalle de los datos: 
+
+1)	Fresh: Gasto anual (m.u.) en productos frescos (Continuo) 
+2)	Milk: Gasto anual (m.u.) en productos lácteos (Continuo); 
+3)	Grocery: Gasto anual (m.u.) en productos comestibles (Continuo); 
+4)	Frozen: Gasto anual (m.u.) en productos congelados (Continuo) 
+5)	Detergents_Paper: Gasto anual (m.u.) en detergentes y productos de papel (Continuo) 
+6)	Delicatessen: Gasto anual (m.u.) en productos exóticos (Continuous); 
+7)	Channel: Canal de clientes => Horeca (Hotel/Restaurante/Cafê) ó Retail (Nominal) 
+8)	Region: Canal de region - Lisbon, Oporto u Other (Nominal) 
+
+
 Fuente del dataset:
 https://archive.ics.uci.edu/ml/datasets/Wholesale+customers
 
 
-2. Cargue el archivo Wholesale customers data.csv en una variable
+## 2. Cargue el archivo Wholesale customers data.csv en una variable
 
 ```{r}
-# Escriba su código aqui
+
+# Carga de datos
+wholesale_data <- read.csv('Wholesale.csv', header = T, na.strings = '?')
+
+# Datos sin variables nominales (Channel & Region)
+wholesale_data_clean <- wholesale_data[,c(3: 8)]
+
 ```
 
-3. Desarolle el Entendimiento de los Datos
+## 3. Desarolle el Entendimiento de los Datos
 
 ```{r}
-# Escriba su código aqui
+
+# Resultado de los datos
+# Valores mínimos, máximos, mediana y media de cada columna 
+summary(wholesale_data)
+
+# Visualización de tipos de datos
+vis_dat(wholesale_data)
+
+# Numero de filas del dataset
+nrow(wholesale_data)
+
+# Revisar valores nulos del dataset
+sum(is.na(wholesale_data))
+
 ```
 
-4. Utilizando barplot cree un gráfico de los atributos del dataset, observe las correlaciones entre atributos
+### Resultado breve de los datos
+
+- Numero de registros: 440
+- Registros valores nulos: 0
+- Tipos de datos encontrados: Números enteros
+- Numero de columnas o variables encontradas: 8 (6 variables cuantitativas continuas & 2 variables cualitativas nominales)
+
+
+## 4. Utilizando barplot cree un gráfico de los atributos del dataset, observe las correlaciones entre atributos
 
 ```{r}
-# Escriba su código aqui
+
+# Cantidad de registros por región
+region_counts <- table(wholesale_data["Region"])
+
+# Cantidad de registros por canal
+channel_counts <- table(wholesale_data["Channel"])
+
+
+# Registros por región
+barplot(table(
+        wholesale_data["Region"]), 
+        main="Registros por región",
+        names.arg = c("Lisbon", "Oporto", "Other Region"), 
+        ylab = "Cantidad de registros",
+        col=c("darkblue","red", "darkgreen"),
+        legend = region_counts)
+
+# Registros por canal
+barplot(table(
+        wholesale_data["Channel"]),
+        main = "Registros por canal",
+        names.arg	= c("Horeca", "Retail"), 
+        ylab = "Cantidad de registros",
+        col=c("darkblue","red"),
+        legend = channel_counts)
+
 ```
+
+### Resultado breve de los datos:
+
+Cantidad por región:
+
+- Lisbon: 77
+- Oporto: 47 
+- Other Region: 316 
+
+Cantidad por canal:
+
+- Horeca: 298 
+- Retail:	142 
+
+
+```{r}
+
+# Gráfico de correlaciones entre atributos, se ignoran Channel y Region como parte del proceso de análisis ya que son variables cualitativas nominales
+ggpairs(wholesale_data_clean)
+
+```
+
+### Interpretando los resultados de la correlación
+
+#### Tipos de relación
+- -1,00 = Correlación negativa perfecta
+- -0,90 = Correlación negativa muy fuerte
+- -0,75 = Correlación negativa considerable
+- -0,50 = Correlación negativa media
+- -0,10 = Correlación negativa débil
+- 0,00  = No existe correlación lineal alguna entre las variables
+- 0,10  = Correlación positiva débil
+- 0,50  = Correlación positiva media
+- 0,75 = Correlación positiva considerable
+- 0,90  = Correlación positiva muy fuerte
+- 1,00  = Correlación positiva perfecta
+
+
+Basado en nuestra lista de medidas de correlaciones anterior podemos definir lo siguiente para algunas correlaciones encontradas en nuestro plot anterior:
+
+- Hay una correlación negativa débil entre **Detergents_Paper** & **Fresh**
+- Hay una correlación negativa débil entre **Detergents_Paper** & **Frozen**
+- Hay una correlación positiva muy fuerte entre **Detergents_Paper** & **Grocery**
+- Hay una correlación positiva positiva media entre **Detergents_Paper** & **Milk**
+- Hay una correlación positiva positiva media entre **Delicassen** & **Detergents_Paper**
+
+- Correlación positiva más fuerte es entre **Detergents_Paper** & **Grocery** con 0.925
+- Correlación negativa más fuerte es entre **Detergents_Paper** & **Frozen** con -0.132
+
 
 5. Explique el siguiente gráfico
 
 ```{r}
 #Grafico
-#bxplt <- ggplot(data = melt(Wholesale), aes(x= variable, y = value))
-#bxplt <- bxplt + geom_boxplot()
-#bxplt <- bxplt + facet_wrap(~Channel)
-#bxplt <- bxplt + coord_flip()
-#bxplt <- bxplt + labs(x = 'producto', y  = 'ventas')
-#bxplt <- bxplt + ggtitle('Ventas por producto y por canal')
-#bxplt
+# Es necesario agregar id.vars con Region & Channel para poder dividir los datos
+bxplt <- ggplot(data = melt(wholesale_data, id.vars=c('Region','Channel'), variable.name = c("AgeGroup", "Geo")), aes(x= variable, y = value))
+bxplt <- bxplt + geom_boxplot()
+bxplt <- bxplt + facet_wrap(~Channel,labeller = "label_both")
+bxplt <- bxplt + coord_flip()
+bxplt <- bxplt + labs(x = 'producto', y  = 'ventas')
+bxplt <- bxplt + ggtitle('Ventas por producto y por canal')
+bxplt
 
-# Escriba su código aqui
 ```
 
-6. Cree un modelo de agrupación K- Means
+Basado en plot anterior podemos determinar lo siguiente:
+
+- Para **Delicassen** podemos notar que en el canal 1 hay outliers con mayores valores que en el canal 2 donde se mantienen los valores mas agrupados basado en la cantidad de ventas
+- Para **Detergents_Paper** podemos observar que en el canal 2 los valores estan mas distribuidos en comparación al canal 1 donde sus valores estan mas agrupados, esto indica que en el canal 1 sus ventas son mas regulares en cuanto a cantidad de este producto.
+- Para **Frozen** se pueden ver grupos de outliers significativos en el canal 1 en compararación al canal 2.
+- Para **Grocery** podemos observar outliers muy variados para el canal 2, lo que indica que hay basante variabilidad en el rango de los datos en comparación con el canal 1.
+- Para **Milk** podemos notar que hay cierta similitud entre ambos canales, tantos en sus agrupaciones como outliers.
+- Para **Fresh** podemos notar que en el canal 1 hay outliers que tienen una distancia muy demarcada con respecto a las agrupaciones mas cercanas, esto puede deberse a epocas muy especificas del año donde dicho producto posee ventas muy significativas con respecto a otras epocas. 
+
+
+## 6. Cree un modelo de agrupación K- Means
 Para agrupar a los clientes con base al consumo, vamos a utilizar solo las variables Fresh, Milk, Grocery, Frozen, Detergents_Paper y Delicassen. En este caso, vamos a intentar agrupar los clientes en 5 grupos diferentes.
 
 
+### Modelo con 5 centroides
+
 ```{r}
-# Escriba su código aqui
 
-#5 Centroides utilizando k-means
-#modelo.agrupacion <- kmeans(Wholesale[,c(3:8)], centers = 5)
+set.seed(123)
 
-#predecir utilizando el modelo para agregar una variable nueva llamada 'cluster' al conjunto de datos
-#Wholesale$cluster <- modelo.agrupacion$cluster
+# Centroides utilizando k-means
+modelo_kmeans_5 <- kmeans(wholesale_data_clean, centers = 5)
 
-#convertir la variable nueva a un factor
-#Wholesale$cluster <- factor(Wholesale$cluster)
+# Predecir utilizando el modelo para agregar una variable nueva llamada 'cluster' al conjunto de datos
+wholesale_data$cluster5 <- modelo_kmeans_5$cluster
+
+# Convertir la variable nueva a un factor
+wholesale_data$cluster5 <- factor(wholesale_data$cluster5)
+
+# Visualización de clusters
+fviz_cluster(modelo_kmeans_5, wholesale_data_clean, geom = "point", ellipse.type = "norm")
 
 ```
 
-6. Realice al menos 3 modelos cambiando los centroides 
+## 6. Realice al menos 3 modelos cambiando los centroides
+
+
+### Modelo con 6 centroides
+
 ```{r}
-# Escriba su código aqui
+
+# Centroides utilizando k-means
+modelo_kmeans_6 <- kmeans(wholesale_data_clean, centers = 6)
+
+# Predecir utilizando el modelo para agregar una variable nueva llamada 'cluster' al conjunto de datos
+wholesale_data$cluster6 <- modelo_kmeans_6$cluster
+
+# Convertir la variable nueva a un factor
+wholesale_data$cluster6 <- factor(wholesale_data$cluster6)
+
+# Visualización de clusters
+fviz_cluster(modelo_kmeans_6, wholesale_data_clean, geom = "point", ellipse.type = "norm")
+
 ```
 
-7. Evaluacioón del modelo
+### Modelo con 7 centroides
+
 ```{r}
-# Escriba su código aqui
-#Explicacion de los grupos generados
-#by(Wholesale, Wholesale$cluster, summary)
+
+# Centroides utilizando k-means
+modelo_kmeans_7 <- kmeans(wholesale_data_clean, centers = 7)
+
+# Predecir utilizando el modelo para agregar una variable nueva llamada 'cluster' al conjunto de datos
+wholesale_data$cluster7 <- modelo_kmeans_7$cluster
+
+# Convertir la variable nueva a un factor
+wholesale_data$cluster7 <- factor(wholesale_data$cluster7)
+
+# Visualización de clusters
+fviz_cluster(modelo_kmeans_7, wholesale_data_clean, geom = "point", ellipse.type = "norm")
+
 ```
 
 
-8. Desarolle al menos 5 conclusiones sobre los grupos realizados
+
+## 7. Evaluación del modelo
+```{r}
+
+# Evaluación del modelo "modelo_kmeans_5" que posee 5 grupos
+
+# Gasto total del producto Milk por grupo
+by(wholesale_data$Milk,  modelo_kmeans_5$cluster, sum)
+
+# Gasto total del producto Fresh por grupo
+by(wholesale_data$Fresh,  modelo_kmeans_5$cluster, sum)
+
+# Gasto total del producto Grocery por grupo
+by(wholesale_data$Grocery,  modelo_kmeans_5$cluster, sum)
+
+# Gasto total del producto Frozen por grupo
+by(wholesale_data$Frozen,  modelo_kmeans_5$cluster, sum)
+
+# Gasto total del producto Detergents_Paper por grupo
+by(wholesale_data$Detergents_Paper,  modelo_kmeans_5$cluster, sum)
+
+# Gasto total del producto Delicassen por grupo
+by(wholesale_data$Delicassen,  modelo_kmeans_5$cluster, sum)
+
+# Cantidad de gastos en productos por canal (1 - Horeca, 2- Retail)
+by(wholesale_data$Channel, modelo_kmeans_5$cluster, table)
+
+# Cantidad de gastos en productos por región (1- Lisbon, 2- Oport, 3- Other Region)
+by(wholesale_data$Region, wholesale_data$cluster5, table)
+
+# Sumatoria de gastos totales por grupo
+by(wholesale_data[c(3:8)],  modelo_kmeans_5$cluster, sum)
+
+```
+
+
+## 8. Desarolle al menos 5 conclusiones sobre los grupos realizados
   * Ejemplo:
     - Las principales características de cada grupo son:
-      - #### Grupo #1: (2do grupo más pequeño)
+      - Grupo #1: (2do grupo más pequeño)
       - Principalmente observaciones de la región 3 y el canal 1.
       - Muy alto consumo de productos frescos.
       - Bajo consumo de leche.
@@ -100,5 +310,79 @@ Para agrupar a los clientes con base al consumo, vamos a utilizar solo las varia
       - Alto consumo de alimentos congelados.
       - Bajo consumo de detergentes.
       - Bajo consumo de delicassen.
+      
+
+### Analisis de los datos anuales por grupos
+      
+  **Grupo #1**  
+  
+   Cantidad por canal ( Horeca (7) Retail (72) )
+   Cantidad por región ( Lisbon (14) Oporto (11) Other Region (54) )
+   Gasto total: 3616342 unidades monetarias
+  
+  - Posee el mayor consumo del producto **Milk** con respecto a los demas grupos con 919489 unidades monetarias
+  - Posee un bajo consumo del producto **Fresh** con 368739 unidades monetarias
+  - Posee el mayor consumo del producto **Grocery** con 1444893 unidades monetarias
+  - Posee un bajo consumo del producto **Frozen** con 120494 unidades monetarias
+  - Posee el mayor consumo del producto **Detergents_Paper** con 636765 unidades monetarias
+  - Posee un consumo medio del producto **Delicassen**  con 125962 unidades monetarias
+  
+  **Grupo #2**  
+  
+   Cantidad por canal ( Horeca (81) Retail (21) )
+   Cantidad por región ( Lisbon (18) Oporto (11) Other Region (73) )
+   Gasto total: 3823102 unidades monetarias
+  
+  - Posee un consumo medio del producto **Milk** con 401253 unidades monetarias
+  - Posee el mayor consumo del producto **Fresh** con respecto a los demas grupos con 2176430 unidades monetarias
+  - Posee un consumo medio del producto **Grocery** con 527959 unidades monetarias
+  - Posee un alto consumo del producto **Frozen** con 426644 unidades monetarias
+  - Posee un bajo consumo del producto **Detergents_Paper** con 116087 unidades monetarias
+  - Posee un alto consumo del producto **Delicassen**  con 174729 unidades monetarias
+
+   **Grupo #3**  
+  
+   Cantidad por canal ( Horeca (1) Retail (9) )
+   Cantidad por región ( Lisbon (1) Oporto (1) Other Region (8) )
+   Gasto total: 1421475 unidades monetarias
+  
+  - Posee un consumo medio del producto **Milk** con 374433 unidades monetarias
+  - Posee el menor consumo del producto **Fresh** con 212637 unidades monetarias
+  - Posee un consumo medio - bajo del producto **Grocery** con 467106 unidades monetarias
+  - Posee el menor consumo del producto **Frozen** con 62872 unidades monetarias
+  - Posee un consumo medio del producto **Detergents_Paper** con 216994 unidades monetarias
+  - Posee un bajo consumo del producto **Delicassen**  con 87433 unidades monetarias 
+  
+   **Grupo #4**  
+  
+   Cantidad por canal ( Horeca (188) Retail (38) )
+   Cantidad por región ( Lisbon (41) Oporto (23) Other Region (162) )
+   Gasto total: 4110357 unidades monetarias
+  
+  - Posee un alto consumo del producto **Milk** con 740555 unidades monetarias
+  - Posee un alto consumo del producto **Fresh** con 1388515 unidades monetarias
+  - Posee un alto consumo del producto **Grocery** con 930027 unidades monetarias
+  - Posee el mayor consumo del producto **Frozen** con 551067 unidades monetarias
+  - Posee un consumo medio - alto del producto **Detergents_Paper** con 275879 unidades monetarias
+  - Posee el mayor consumo del producto **Delicassen** con 224314 unidades monetarias
+  
+  **Grupo #5**  
+  
+   Cantidad por canal ( Horeca (21) Retail (2) )
+   Cantidad por región ( Lisbon (3) Oporto (1) Other Region (19) )
+   Gasto total: 1648224 unidades monetarias
+  
+  - Posee el menor consumo del producto **Milk** con 114627 unidades monetarias
+  - Posee un consumo medio - alto del producto **Fresh** con 1133810 unidades monetarias
+  - Posee el menor consumo del producto **Grocery** con 128577 unidades monetarias
+  - Posee un consumo bajo del producto **Frozen** con 190573 unidades monetarias
+  - Posee el menor consumo del producto **Detergents_Paper** con 22132 unidades monetarias
+  - Posee el menor consumo del producto **Delicassen** con 58505 unidades monetarias
+  
+  
+    
+  
+  
+      
 
 
