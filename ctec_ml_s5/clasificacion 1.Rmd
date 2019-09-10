@@ -1,5 +1,5 @@
 ---
-title: "Random Forest"
+title: "Tarea 5"
 output: html_document
 ---
 
@@ -11,55 +11,471 @@ knitr::opts_chunk$set(echo = TRUE)
 # Metodos supervisados
 
 Librerias
+
 ```{r}
-library(caTools)
-library(rpart)
-library(randomForest)
+
+library('GGally')
+library('ggplot2')
+library('caTools')
+library('rpart')
+library('randomForest')
+library('rpart.plot')
+library('ROCR')
+library('dplyr')
+library('visdat')
+library('cba')
+library('caret')
+library('pROC')
+library('GoodmanKruskal')
+
 ```
 
-1. Desarolle el Análisis del Problema
-```{r}
-# Construya el análisis del problema
+## 1. Desarolle el Análisis del Problema
 
 
-# Este conjunto de datos incluye descripciones de muestras hipotéticas correspondientes a 23 especies de # hongos branquiales en el hongo de la familia Agaricus y Lepiota extraídas de la Guía de campo de la # # Sociedad Audubon de hongos de América del Norte (1981). Cada especie se identifica como definitivamente # comestible, definitivamente venenosa o de comestibilidad desconocida y no se recomienda. Esta última # # clase se combinó con la venenosa. La Guía establece claramente que no existe una regla simple para # # # determinar la comestibilidad de un hongo; ninguna regla como "folletos tres, que así sea" para el # roble venenoso y la hiedra.
+Este conjunto de datos incluye descripciones de muestras hipotéticas correspondientes a 23 especies de hongos branquiales en el hongo de la familia Agaricus y Lepiota extraídas de la Guía de campo de la Sociedad Audubon de hongos de América del Norte (1981). Cada especie se identifica como definitivamente comestible, definitivamente venenosa o de comestibilidad desconocida y no se recomienda. Esta última clase se combinó con la venenosa. La Guía establece claramente que no existe una regla simple para determinar la comestibilidad de un hongo; ninguna regla como "folletos tres, que así sea" para el roble venenoso y la hiedra.
 
-```
+Las reglas lógicas dadas a continuación parecen ser las más simples posibles para
+el conjunto de datos de hongos, por lo tanto, deben tratarse como resultados de referencia.
+
+Reglas disyuntivas para hongos venenosos, de la mayoría en general a lo más específico:
+
+- P1) odor=NOT(almond.OR.anise.OR.none)
+     120 casos venenosos perdidos, 98.52% de precisión
+
+- P2) spore-print-color=green
+	48 casos perdidos, 99.41% de precisión
+         
+- P3) odor=none.AND.stalk-surface-below-ring=scaly.AND.(stalk-color-above-ring=NOT.brown) 
+     8 casos perdidos, 99.90% de precisión
+     
+- P4) habitat=leaves.AND.cap-color=white
+     100% de precisión
+
+- P4) population=clustered.AND.cap_color=white
+
+Estas reglas involucran 6 atributos (de 22).
+
+Reglas para comestibles: los hongos se obtienen como negación de las reglas dadas anteriormente.
+
+- Información: (class: edible, poisonous)
+
+     1. *cap-shape:*                bell=b,conical=c,convex=x,flat=f, knobbed=k,sunken=s
+     2. *cap-surface:*              fibrous=f,grooves=g,scaly=y,smooth=s
+     3. *cap-color:*                brown=n,buff=b,cinnamon=c,gray=g,green=r,pink=p,purple=u,red=e,white=w,yellow=y
+     4. *bruises?:*                 bruises=t,no=f
+     5. *odor:*                     almond=a,anise=l,creosote=c,fishy=y,foul=f,musty=m,none=n,pungent=p,spicy=s
+     6. *gill-attachment:*          attached=a,descending=d,free=f,notched=n
+     7. *gill-spacing:*             close=c,crowded=w,distant=d
+     8. *gill-size:*                broad=b,narrow=n
+     9. *gill-color:*               black=k,brown=n,buff=b,chocolate=h,gray=g,green=r,orange=o,pink=p,purple=u,red=e,white=w,yellow=y
+    10. *stalk-shape:*              enlarging=e,tapering=t
+    11. *stalk-root:*               bulbous=b,club=c,cup=u,equal=e,rhizomorphs=z,rooted=r,missing=?
+    12. *stalk-surface-above-ring:* fibrous=f,scaly=y,silky=k,smooth=s
+    13. *stalk-surface-below-ring:* fibrous=f,scaly=y,silky=k,smooth=s
+    14. *stalk-color-above-ring:*   brown=n,buff=b,cinnamon=c,gray=g,orange=o,pink=p,red=e,white=w,yellow=y
+    15. *stalk-color-below-ring:*   brown=n,buff=b,cinnamon=c,gray=g,orange=o,pink=p,red=e,white=w,yellow=y
+    16. *veil-type:*                partial=p,universal=u
+    17. *veil-color:*               brown=n,orange=o,white=w,yellow=y
+    18. *ring-number:*              none=n,one=o,two=t
+    19. *ring-type:*                cobwebby=c,evanescent=e,flaring=f,large=l,none=n,pendant=p,sheathing=s,zone=z
+    20. *spore-print-color:*       black=k,brown=n,buff=b,chocolate=h,green=r,orange=o,purple=u,white=w,yellow=y
+    21. *population:*               abundant=a,clustered=c,numerous=n,scattered=s,several=v,solitary=y
+    22. *habitat:*                  grasses=g,leaves=l,meadows=m,paths=p,urban=u,waste=w,woods=d
+
 Fuente del dataset:
 https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.data
 
-1. Cargue el archivo agaricus_lepiota.data.csv en una variable
+Requerimiento: Clasificar los hongos en dos tipos **edible** y **poisonous** utilizando 3 tipos de modelos de aprendizaje supervisado
+
+## 1. Cargue el archivo agaricus_lepiota.data.csv en una variable
 
 ```{r}
-# Escriba su código aqui
+
+# # Carga de datos
+# agaricus_col_names <-
+#     c(
+#         "class",
+#         "cap.shape",
+#         "cap.surface",
+#         "cap.color",
+#         "bruises",
+#         "odor",
+#         "gill.attachment",
+#         "gill.spacing",
+#         "gill.size",
+#         "gill.color",
+#         "stalk.shape",
+#         "stalk.root",
+#         "stalk.surface.above.ring",
+#         "stalk.surface.below.ring",
+#         "stalk.color.above.ring",
+#         "stalk.color.below.ring",
+#         "veil.type",
+#         "veil.color",
+#         "ring.number",
+#         "ring.type",
+#         "spore.print.color",
+#         "population",
+#         "habitat"
+#     )
+
+# Parámetro na.strings = '?' para que interprete los signos de pregunta como valores faltantes
+# agaricus_data <- read.csv(
+#     'agaricus-lepiota.data.csv',
+#     header = F,
+#     col.names = agaricus_col_names,
+#     na.strings = '?'
+# )
+
+# Se agrega el paquete Mushroom de la librería cba para incorporar el dataset, de igual forma 
+# con el código comentado anteriormente podemos cargar el dataset desde nuestro archivo csv
+data("Mushroom")
+
+# Formatea los names de las variables
+names(Mushroom) <- make.names(names(Mushroom))
+
 ```
 
-2. Desarolle el Entendimiento de los Datos
+## 2. Desarolle el Entendimiento de los Datos
 
 ```{r}
-# Escriba su código aqui
+
+# Resultado de los datos
+
+# Valores mínimos, máximos, mediana y media de cada columna
+summary(Mushroom)
+
+# Visualización de tipos de datos
+vis_dat(Mushroom)
+
+# Estructura del conjunto de datos
+str(Mushroom)
+
+# Numero de fil as del dataset
+nrow(Mushroom)
+
+# Revisar valores nulos del dataset
+sum(is.na(Mushroom))
+
 ```
 
-3. Utilizando barplot cree un gráfico de los atributos del dataset, observe las correlaciones entre atributos
+### Resultado breve de los datos
+
+- Numero de registros: 8124
+- Tipos de variables encontradas: 23 variables categóricas nominales
+- Distribución de clases basado en el atributo **class**:
+
+     edible: 4208 (51.8%)
+     poisonous: 3916 (48.2%)
+
+- El atributo **stalk.root** presenta 2480 valores nulos
+- El atributo **veil.type** presenta unicamente el valor **partial**
+
+
+## 3. Utilizando barplot cree un gráfico de los atributos del dataset, observe las correlaciones entre atributos
 
 ```{r}
-# Escriba su código aqui
+
+# Cantidad de registros por región
+class_count <- table(Mushroom$class)
+
+# Registros por clase de hongo
+barplot(
+    table(Mushroom$class),
+    main = "Registros por clase",
+    ylab = "Cantidad de registros",
+    col = c("darkblue", "red"),
+    legend = class_count
+)
+
+# Gráfico de asociaciones entre variables categóricas 
+# Se utiliza Goodman and Kruskal’s tau para poder mediar la asociación entre variables 
+# Se utilizaron las variables recomendadas según el enunciado presentado anteriormente
+mushroom_variable_names <-
+    c(
+        'class',
+        'odor',
+        'spore.print.color',
+        'stalk.surface.below.ring',
+        'stalk.color.above.ring',
+        'habitat',
+        'cap.color',
+        'population'
+    )
+
+# Resultado de asociaciones entre variables, los valores más altos en relación con class son los valores que presentan
+# mayor representación para determinar si es edible o poisonous
+GKmatrix <- GKtauDataframe(subset(Mushroom, select = mushroom_variable_names))
+
+plot(GKmatrix)
+
 ```
 
+En el gráfico de arriba podemos observar la cantidad de registros por tipo de clase, donde 4208 pertenecen a **edible** y 3916 pertenecen a **poisonous**
 
-4. Realice al menos 3 modelos vistos en clase
+En el gráfico de asociaciones podemos observar que las variables **odor** y **spore.print.color** son las que presentan mayor fuerza en relación a la clase, por lo que claramente representan puntos de partida para determinar si un hongo es de clase **edible** o **poisonous**
+
 ```{r}
-# Escriba su código aqui
+
+# Cantidad de datos por nivel con la variable cap-shape
+summary(Mushroom$cap.shape)
+
+# Evaluando convex & flat
+mushroom_cap_shape_mosaic <- Mushroom %>% filter(cap.shape == c('convex','flat'))
+
+mosaicplot(~mushroom_cap_shape_mosaic$class + mushroom_cap_shape_mosaic$cap.shape,
+main = 'Proporción de la forma del hongo por el tipo',
+ylab = 'Forma del hongo',
+xlab = 'Tipo de hongo')
+
 ```
 
-5. Evaluación del modelo
+Del gráfico anterior, podemos concluir que la forma no es un factor radical para determinar si es venenoso o no, dado que para ambos cosas existen cantidades muy altas de la forma **convex** y **flat** por lo que es dificil determinar una forma muy acertada para disernir si es **edible** o **poisonous**
+ 
 ```{r}
-# Escriba su código aqui
+
+# Cantidad de datos por nivel con la variable cap.shape
+summary(Mushroom$habitat)
+
+# Evaluando urban & paths
+mushroom_habitat_mosaic <- Mushroom %>% filter(habitat == c('urban','paths'))
+
+mosaicplot(~mushroom_habitat_mosaic$class + mushroom_habitat_mosaic$habitat,
+main = 'Proporción del habitad por el tipo de hongo',
+ylab = 'Habitad',
+xlab = 'Tipo de hongo')
+
+table(mushroom_habitat_mosaic$class,mushroom_habitat_mosaic$habitat)
 
 ```
 
+Del gráfico anterior y tabla de resultados, notamos algo sumamente interesante con respecto a sus proporcionalidades, si notamos los valores como **urban** y **paths** podemos notar que estos valores tienen mayor proporcionalidad para **poisonous** esto puede deberse al hecho de que hay más posibilidades de que un hongo sea venenoso si proviene de lugares donde influyan directamente los humanos como lugares urbanos y caminos.
+ 
+## 4. Realice al menos 3 modelos vistos en clase
 
-8. Desarolle al menos 3 conclusiones sobre las clasificaciones de los modelos
+### Preparación de los datos
+
+```{r}
+
+set.seed(123)
+
+# Se transforma la variable class a factor
+Mushroom$class <- factor(Mushroom$class)
+
+# Datos de  entrenamiento 70% de las observaciones
+# Datos de prueba con el restante 30% de las observaciones
+mushroom_data_split <-
+    sample.split(Mushroom$class, SplitRatio = 0.7)
+
+# 70% de las observaciones
+mushroom_data_training <- Mushroom[mushroom_data_split,]
+
+# 30% de las observaciones
+# Se omiten los valores que sean nulos para las pruebas
+mushroom_data_testing <- Mushroom[!mushroom_data_split,]
+
+# Formula a utilizar en los modelos, dado el hecho de que estas variables son las que poseen mayor fuerza para determinar la clase 
+mushroom_formula <- class ~ odor + spore.print.color
+
+# Función para generar curva ROC de los modelos
+plotROCCurve <- function(predictionResults, title, color = "red")
+{
+    plot(
+        roc(
+            mushroom_data_testing$class,
+            predictionResults,
+            direction = "<"
+        ),
+        print.auc = TRUE,
+        col = color,
+        lwd = 3,
+        main = title
+    )
+}
+
+
+```
+
+### Comprobación de la distribución entre dataset de entrenamiento y pruebas
+
+```{r}
+
+# Comprobación de la distribución de clases edible y poisonous
+barplot(
+    table(mushroom_data_training$class),
+    main = 'Distribución de las clases en mushroom_data_training',
+    ylab = 'Observaciones',
+    xlab = 'Classes'
+)
+
+barplot(
+    table(mushroom_data_testing$class),
+    main = 'Distribución de las clases en mushroom_data_testing',
+    ylab = 'Observaciones',
+    xlab = 'Classes'
+)
+
+```
+
+### Arbol de decisiones
+
+```{r}
+
+# Modelo
+mushroom_modelo_arbol_decision <-
+    rpart(mushroom_formula, data = mushroom_data_training, method =  'class')
+
+# Predicciones
+mushroom_modelo_arbol_decision_predicciones <-
+    predict(mushroom_modelo_arbol_decision,
+            mushroom_data_testing,
+            type = 'class')
+
+```
+
+### Regresión Logística
+
+```{r}
+
+# Modelo
+mushroom_modelo_regresion_logistica <-
+    glm(mushroom_formula,
+        data = mushroom_data_training,
+        family = 'binomial')
+
+
+# Predicciones
+mushroom_modelo_regresion_logistica_predicciones <-
+    predict(mushroom_modelo_regresion_logistica,
+            mushroom_data_testing,
+            type = 'response')
+
+```
+
+### Random Forest
+
+
+```{r}
+
+# Modelo
+mushroom_modelo_random_forest <-
+    randomForest(mushroom_formula, data = mushroom_data_training)
+
+# Predicciones
+mushroom_modelo_random_forest_predicciones <-
+    predict(mushroom_modelo_random_forest,
+            newdata = mushroom_data_testing,
+            type = "class")
+```
+
+
+## 5. Evaluación del modelo
+
+### Arbol de decisión
+
+```{r}
+
+# Plot de arbol de decisiones
+rpart.plot(mushroom_modelo_arbol_decision,
+           shadow.col = "gray",
+           main = "Clasificación de hongos (edible o poisonous) \n(Arbol de decisión)\n")
+
+# Tabla de confusión
+confusionMatrix(mushroom_data_testing$class, mushroom_modelo_arbol_decision_predicciones)
+
+plotROCCurve(
+    as.numeric(mushroom_modelo_arbol_decision_predicciones == "poisonous"),
+    "Curva ROC Regresión Logística"
+)
+
+```
+
+Despues de haber creado el modelo y posterior a esto haber ejecutado las predicciones
+se genero la respectiva matriz de confusión para evaluar los resultados de las predicciones, se obtuvieron los siguientes resultados:
+
+- 1262 observaciones eran realmente **edible** y fueron clasificadas como **edible**
+- 13 observaciones eran **poisonous** y fueron clasificadas como **edible**
+- 1162 observaciones eran realmente **poisonous** y fueron clasificadas como **poisonous**
+
+**Resumen de los datos:**
+
+- Exactitud: 99,47%
+- Sensibilidad: 98,98%
+- Especificidad:  100%
+
+
+### Regresión Logística
+
+```{r}
+
+predictions <-
+    ifelse(mushroom_modelo_regresion_logistica_predicciones > 0.5,
+           'poisonous',
+           'edible')
+
+# Tabla_confusion
+confusionMatrix(table(mushroom_data_testing$class, predictions))
+
+plotROCCurve(
+    mushroom_modelo_regresion_logistica_predicciones,
+    "Curva ROC Regresión Logística"
+)
+
+```
+
+Despues de haber creado el modelo y posterior a esto haber ejecutado las predicciones
+se genero la respectiva matriz de confusión para evaluar los resultados de las predicciones, se obtuvieron los siguientes resultados:
+
+- 1262 observaciones eran realmente **edible** y fueron clasificadas como **edible**
+- 13 observaciones eran **poisonous** y fueron clasificadas como **edible**
+- 1162 observaciones eran realmente **poisonous** y fueron clasificadas como **poisonous**
+
+**Resumen de los datos:**
+
+- Exactitud: 99,47%
+- Sensibilidad: 98,98%
+- Especificidad:  100%
+
+
+### Random Forest
+
+```{r}
+
+confusionMatrix(mushroom_data_testing$class,
+                mushroom_modelo_random_forest_predicciones)
+
+plotROCCurve(
+    as.numeric(mushroom_modelo_random_forest_predicciones == "poisonous"),
+    "Curva ROC Random Forest"
+)
+
+```
+
+Despues de haber creado el modelo y posterior a esto haber ejecutado las predicciones
+se genero la respectiva matriz de confusión para evaluar los resultados de las predicciones, se obtuvieron los siguientes resultados:
+
+- 1262 observaciones eran realmente **edible** y fueron clasificadas como **edible**
+- 13 observaciones eran **poisonous** y fueron clasificadas como **edible**
+- 1162 observaciones eran realmente **poisonous** y fueron clasificadas como **poisonous**
+
+**Resumen de los datos:**
+
+- Exactitud: 99,47%
+- Sensibilidad: 98,98%
+- Especificidad:  100%
+
+
+
+## 8. Desarolle al menos 3 conclusiones sobre las clasificaciones de los modelos
+
+* En todas las predicciones de los distintos modelos se encontraron 13 registros que fueron categorizados como **edible** cuando su verdadero valor es **poisonous**, estos registros deben ser tomados en cuenta para determinar si realmente este modelo debería ser tomado en cuenta.
+
+* Para todos los modelos de **Arboles de decisiones**, **Regresión Logística** y **Random Forest** se obtuvo una precisión del 99.47%, el cual es un valor muy alto para poder identificar entre si un hongo es **edible** o **poisonous**, aun hay cierto margen de error para determinar el tipo correcto por lo que se debe hacer una serie de correcciones para mejorar el margen y poder decir que el modelo es lo suficiente bueno para poder llegar aun valor aun mas alto.
+
+* En el análisis exploratorio de los datos se opto por las dos variables mas representativas que fueron **odor** y **spore.print.color** despues de haber hecho un análisis exploratorio de la asociación entre variables, aun hay ciertos procesos que a mi parecer deben valorarse cuando en el análisis debe evaluarse variables que son en su totalidad categóricas, ya que simples correlaciones no son aptas para estos escenarios.
+
+
 
 
 
